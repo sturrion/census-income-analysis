@@ -1,0 +1,555 @@
+---
+title: 'Census Income Dataset - EDA'
+author: "Author: sturrion"
+date: "March 2021"
+output:
+  html_document:
+    highlight: default
+    number_sections: yes
+    theme: cosmo
+    toc: yes
+    toc_depth: 4
+    includes:
+      in_header: sturrion_header.html
+  pdf_document:
+    highlight: zenburn
+    toc: yes
+  word_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+# I create my colors palette
+small.palette <- c('#A3CCC9','#CCADC7','#99CCAC','#CC9D85','#9ECC8F')
+
+library(RColorBrewer)
+big.palette <- colorRampPalette(small.palette)
+
+color.less50K <- small.palette[1]
+color.more50k <- small.palette[2]
+color.main <- small.palette[3]
+```
+
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+# install and load some libraries
+# https://cran.r-project.org/web/packages/ggplot2/index.html
+if (!require('ggplot2')) install.packages('ggplot2'); library('ggplot2')
+# https://cran.r-project.org/web/packages/dplyr/index.html
+if (!require('dplyr')) install.packages('dplyr'); library('dplyr')
+# https://CRAN.R-project.org/package=ggthemes 
+if (!require('ggthemes')) install.packages('ggthemes'); library('ggthemes')
+```
+
+#Preprocesing data
+
+Loading the dataset
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+# adult.data does not have a header row, so, we need to create it
+column.names <- c('age','workclass','fnlwgt','education','education.num',
+                  'marital.status','occupation','relationship','race','sex',
+                  'capital.gain','capital.loss','hours.per.week','native.country',
+                  'income')
+
+# strip.white = TRUE to keep out the latest rows (empty rows)
+adult.data <- read.csv('../data/adult.data', stringsAsFactors = FALSE, header = FALSE, col.names = column.names, strip.white = TRUE)
+
+#rows <- dim(adult.data)[1]
+```
+
+We verify the structure of the dataset  
+```{r}
+str(adult.data)
+```
+
+The dataset has 32561 rows and 15 variables.  
+  
+We check that the description of the variables and the loaded variable types correspond to those of the file:  
+
+- **age:** 
+    continuous.  
+- **workclass:** 
+    Private, Self-emp-not-inc, Self-emp-inc, Federal-gov, Local-gov, State-gov, Without-pay, Never-worked.  
+- **fnlwgt:** 
+    continuous.  
+- **education:** 
+    Bachelors, Some-college, 11th, HS-grad, Prof-school, Assoc-acdm, Assoc-voc, 9th, 7th-8th, 12th, Masters, 1st-4th, 10th, Doctorate, 5th-6th, Preschool.  
+- **education-num:** 
+    continuous.  
+- **marital-status:** 
+    Married-civ-spouse, Divorced, Never-married, Separated, Widowed, Married-spouse-absent, Married-AF-spouse.  
+- **occupation:** 
+    Tech-support, Craft-repair, Other-service, Sales, Exec-managerial, Prof-specialty, Handlers-cleaners, Machine-op-inspct, Adm-clerical, Farming-fishing, Transport-moving, Priv-house-serv, Protective-serv, Armed-Forces.  
+- **relationship:** 
+    Wife, Own-child, Husband, Not-in-family, Other-relative, Unmarried.  
+- **race:** 
+    White, Asian-Pac-Islander, Amer-Indian-Eskimo, Other, Black.  
+- **sex:** 
+    Female, Male.  
+- **capital-gain:** 
+    continuous.  
+- **capital-loss:** 
+    continuous.  
+- **hours-per-week:** 
+    continuous.  
+- **native-country:** 
+    United-States, Cambodia, England, Puerto-Rico, Canada, Germany, Outlying-US(Guam-USVI-etc), India, Japan, Greece, South, China, Cuba, Iran, Honduras, Philippines, Italy, Poland, Jamaica, Vietnam, Mexico, Portugal, Ireland, France, Dominican-Republic, Laos, Ecuador, Taiwan, Haiti, Columbia, Hungary, Guatemala, Nicaragua, Scotland, Thailand, Yugoslavia, El-Salvador, Trinadad&Tobago, Peru, Hong, Holand-Netherlands.  
+- **income:** >50K, <=50K.  
+
+We get the basic statistics:  
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+summary(adult.data)
+```
+
+We look for variables with null data:  
+```{r}
+colSums(is.na(adult.data))
+colSums(adult.data=="")
+```
+
+At first glance, it is observed that there are no null values. We also check that the values of the text fields are valid values.  
+```{r}
+unique(adult.data$workclass)
+unique(adult.data$education)
+unique(adult.data$marital.status)
+unique(adult.data$occupation)
+unique(adult.data$relationship)
+unique(adult.data$race)
+unique(adult.data$sex)
+unique(adult.data$native.country)
+unique(adult.data$income)
+
+colSums(adult.data=="?")
+```
+
+The unknown values have been labeled as '?'. We have unknown values in workclass, occupation, and native.country. 
+  
+What we have for now is:  
+
+* The minimum age of the data set is 17 years and the maximum 90. The interquartile range (IQR) is 28 to 48 years.   
+* The education numeric field ranges from 1 to 16.  
+* We can create a new variable `capital` as capital.gain minus capital.loss.    
+* Weekly work hours range from 1 to 99 and the interquartile range (IQR) ranges from 40 to 45 hours per week.  
+    
+We add a new field `age.segment` with the age discretized in intervals..   
+```{r}
+adult.data$age.segment <- cut(adult.data$age, breaks = c(0,17,27,37,47,57,67,77,87,100), 
+                              labels = c("< 18", "18-27", "28-37", "38-47","48-57","58-67","68-77","78-87", "> 87"))
+
+ggplot(data = adult.data) +
+  aes(x=age.segment) +
+  geom_bar(fill=color.main) + 
+  theme_clean()
+```
+
+As we had seen from the IQR, the segments with the largest population in the census are those between the ages of 18 and 48.  
+
+Let's look at the variables related to education:    
+```{r}
+ggplot(data = adult.data) +
+  aes(x=education.num, fill=education) +
+  geom_bar() + 
+  scale_fill_manual(values = big.palette(length(unique(adult.data$education.num))))+ 
+  theme_clean()
+```
+
+We can see the educational system of the United States in wikipedia (https://en.wikipedia.org/wiki/Education_in_the_United_States), so we can create a new discretized variable based on the education.num field that will be grouped in the following intervals :
+  
+* From 0 to 4
+* From 5 to 8
+* From 9 to 12
+* From 13
+
+```{r}
+adult.data$education.segment <- cut(adult.data$education.num, breaks = c(0,4,8,12,17), 
+                              labels = c("0 to 4", "5 to 8", "9 to 12", ">= 13"))
+
+ggplot(data = adult.data) +
+  aes(x=education.segment) +
+  geom_bar(fill=color.main) + 
+  theme_clean()
+```
+
+In both graphs we can see how, in our data, a large part of the individuals have attended some type of higher education.  
+
+Now, we create the new variable `capital`.  
+```{r}
+adult.data$capital <- adult.data$capital.gain - adult.data$capital.loss
+
+ggplot(data = adult.data) +
+  aes(x=capital) +
+  geom_histogram(binwidth=5000, fill=color.main) + 
+  theme_clean()
+```
+
+```{r}
+summary(adult.data$capital)
+```
+
+We standardize the created variable.  
+```{r}
+adult.data$capital.scaled <- scale(adult.data$capital, center = TRUE, scale = TRUE)
+summary(adult.data$capital.scaled)
+```
+
+And we discretize it.  
+```{r}
+adult.data$capital.segment <- cut(adult.data$capital.scaled, breaks = c(-1.0, 0.0, 1.0, 14.0), 
+                              labels = c("Losses", "Gains", "Large Gains"))
+
+ggplot(data = adult.data) +
+  aes(x=capital.segment) +
+  geom_bar(fill=color.main) + 
+  theme_clean()
+```
+
+We observe how the most frequent is to lose capital.  
+
+Finally, we add a new field `hours.per.week.segment` with the hours worked per weeks in intervals.    
+```{r}
+adult.data$hours.per.week.segment <- cut(adult.data$hours.per.week, breaks = c(0,9,19,29,39,49,59,69,79,89,100), labels = c( "1-9", "10-19", "20-29", "30-39","40-49","50-59","60-69","70-79","80-89","90-99"))
+
+ggplot(data = adult.data) +
+  aes(x=hours.per.week.segment) +
+  geom_bar(fill=color.main) + 
+  theme_clean()
+
+```
+
+We verify, as we already knew from the interquartile range (IQR), that the highest frequency occurs in the range of 40 to 49 hours per week.  
+
+#Exploring data
+
+We are going to analyze the relationships of the variables with the income variable.
+  
+## Age
+
+First we will do it in relative terms.    
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+ggplot(data = adult.data) +
+  aes(x = age, fill = income) +
+  geom_histogram(binwidth=5, position="fill") +
+  labs(x="Age", y="Frequency") +
+  scale_fill_manual(values=c(color.less50K, color.more50k)) +
+  theme_clean() 
+```
+
+The percentage of income over 50K increases with age up to 50 - 55 years. From that moment it begins to decrease. From the retirement age, the proportion remains stable.     
+  
+Let's see the frequency distribution.
+```{r}
+ggplot(data = adult.data) +
+  aes(x=age,fill=income) +
+  geom_histogram(binwidth =3) + 
+  scale_fill_manual(values=c(color.less50K, color.more50k)) +
+  theme_clean()
+```
+  
+## Type of job
+
+We show the relationship between the working class and occupation. First in absolute terms.  
+```{r}
+ggplot(data = adult.data) +
+  aes(x=workclass, fill=occupation) +
+  geom_bar() +  
+  scale_fill_manual(values = big.palette(length(unique(adult.data$occupation))))+ 
+  theme_clean() + 
+  theme(axis.text.x = element_text(angle = 90))
+```
+
+Most of the dataset corresponds to the Private sector.  
+
+Let's see the frequency distribution.  
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+ggplot(data = adult.data) +
+  aes(x = workclass, fill = occupation) +
+  geom_bar(position="fill") +
+  labs(y="Frequency") +
+  scale_fill_manual(values = big.palette(length(unique(adult.data$occupation))))+ 
+  theme_clean() + 
+  theme(axis.text.x = element_text(angle = 90))
+```
+
+The graph shows us the distribution of occupations by type of work.
+
+We generate the graphs to see the relationship of these two variables with income.
+
+Firstly by workclass:
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+ggplot(data = adult.data) +
+  aes(x=workclass,fill=income) + 
+  geom_bar()+ 
+  scale_fill_manual(values=c(color.less50K, color.more50k)) +
+  theme_clean() +
+  theme(axis.text.x = element_text(angle = 90))
+```
+
+```{r}
+ggplot(data = adult.data) +
+  aes(x=workclass,fill=income) + 
+  geom_bar(position="fill") + 
+  ylab("Frequency") +
+  scale_fill_manual(values=c(color.less50K, color.more50k)) +
+  theme_clean() +
+  theme(axis.text.x = element_text(angle = 90))
+```
+
+In the first graph, it appears that private sector workers are the most likely to have an income of over 50K. But, in the second graph, we see that, it is the one with the lowest probability of exceeding 50K.   
+
+Now, we see it by occupation:  
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+ggplot(data = adult.data) +
+  aes(x=occupation,fill=income) + 
+  geom_bar()+ 
+  scale_fill_manual(values=c(color.less50K, color.more50k)) +
+  theme_clean() +
+  theme(axis.text.x = element_text(angle = 90))
+```
+
+```{r}
+ggplot(data = adult.data) +
+  aes(x=occupation,fill=income) + 
+  geom_bar(position="fill") + 
+  ylab("Frequency") + 
+  scale_fill_manual(values=c(color.less50K, color.more50k)) +
+  theme_clean() +
+  theme(axis.text.x = element_text(angle = 90))
+```
+  
+## Education
+
+We will analyze the relationship between education and income with the new discretized variable that we have created.
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+ggplot(data = adult.data) +
+  aes(x=education.segment ,fill=income) + 
+  geom_bar()+ 
+  scale_fill_manual(values=c(color.less50K, color.more50k)) +
+  theme_clean()
+```
+
+```{r}
+ggplot(data = adult.data) +
+  aes(x=education.segment,fill=income) + 
+  geom_bar(position="fill") + 
+  ylab("Frequency") + 
+  scale_fill_manual(values=c(color.less50K, color.more50k)) +
+  theme_clean() 
+```
+
+As expected, income increases with education.  
+  
+## Marital status and relationship  
+
+Let's see, first, the relationship between these variables.  
+```{r}
+ggplot(data = adult.data) +
+  aes(x=marital.status, fill=relationship) +
+  geom_bar() +
+  scale_fill_manual(values = big.palette(length(unique(adult.data$relationship))))+ 
+  theme_clean() + 
+  theme(axis.text.x = element_text(angle = 90))
+```
+
+Let's see the frequency distribution.   
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+ggplot(data = adult.data) +
+  aes(x = marital.status, fill = relationship) +
+  geom_bar(position="fill") +
+  labs(y="Frequency") +
+  scale_fill_manual(values = big.palette(length(unique(adult.data$relationship))))+ 
+  theme_clean() + 
+  theme(axis.text.x = element_text(angle = 90))
+```    
+
+We generate the graphs to see the relationship of these two variables with the income.
+
+Firstly by marital status:
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+ggplot(data = adult.data) +
+  aes(x=marital.status,fill=income) + 
+  geom_bar()+ 
+  scale_fill_manual(values=c(color.less50K, color.more50k)) +
+  theme_clean() +
+  theme(axis.text.x = element_text(angle = 90))
+```
+
+```{r}
+ggplot(data = adult.data) +
+  aes(x=marital.status,fill=income) + 
+  geom_bar(position="fill") + 
+  ylab("Frequency") + 
+  scale_fill_manual(values=c(color.less50K, color.more50k)) +
+  theme_clean() +
+  theme(axis.text.x = element_text(angle = 90))
+```
+
+It seems that there is a higher percentage of people with incomes above 50K among married people.  
+
+By relationship:  
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+ggplot(data = adult.data) +
+  aes(x=relationship,fill=income) + 
+  geom_bar()+ 
+  scale_fill_manual(values=c(color.less50K, color.more50k)) +
+  theme_clean() +
+  theme(axis.text.x = element_text(angle = 90))
+```
+
+```{r}
+ggplot(data = adult.data) +
+  aes(x=relationship,fill=income) + 
+  geom_bar(position="fill") + 
+  ylab("Frequency") + 
+  scale_fill_manual(values=c(color.less50K, color.more50k)) +
+  theme_clean() +
+  theme(axis.text.x = element_text(angle = 90))
+```
+
+Considering that we have seen that the probability of having an income greater than 50K was greater among married people, it is not surprising that here we see that it is greater in the relationships `Husband` and` Wife`.  
+
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+ggplot(data = adult.data) +
+  aes(x=relationship ,fill=income) + 
+  geom_bar(position="fill") + 
+  facet_wrap(~marital.status)+ 
+  scale_fill_manual(values=c(color.less50K, color.more50k)) +
+  theme_clean() +
+  theme(axis.text.x = element_text(angle = 90))
+```
+  
+
+## Race
+
+We show the graph of income by race.  
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+ggplot(data = adult.data) +
+  aes(x=race,fill=income) + 
+  geom_bar()+ 
+  scale_fill_manual(values=c(color.less50K, color.more50k)) +
+  theme_clean() +
+  theme(axis.text.x = element_text(angle = 90))
+```
+
+As it is not very clear, we show the frequency distribution:
+```{r}
+ggplot(data = adult.data) +
+  aes(x=race,fill=income) + 
+  geom_bar(position="fill") + 
+  ylab("Frequency") + 
+  scale_fill_manual(values=c(color.less50K, color.more50k)) +
+  theme_clean() +
+  theme(axis.text.x = element_text(angle = 90))
+```
+
+The highest percentages of people with incomes over 50K are among Asian-Pac-Islander people, followed by white people.   
+    
+## Gender  
+
+We see the distribution by gender.    
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+ggplot(data = adult.data) +
+  aes(x=sex,fill=income) + 
+  geom_bar() + 
+  scale_fill_manual(values=c(color.less50K, color.more50k)) +
+  theme_clean()
+```
+
+At first glance, it can be seen that the proportion of women with income above 50K is lower than the proportion of men with income above 50K. Still, we show the frequency distribution.  
+```{r}
+ggplot(data = adult.data) +
+  aes(x=sex,fill=income) + 
+  geom_bar(position="fill") + 
+  ylab("Frequency") + 
+  scale_fill_manual(values=c(color.less50K, color.more50k)) +
+  theme_clean()
+```
+
+It is found that the percentage of men with incomes above 50K is more than double that of women.    
+  
+## Capital gains and losses  
+  
+We analyze the variable created capital.    
+```{r}
+ggplot(data = adult.data) +
+  aes(x=capital.segment, fill=income) + 
+  geom_bar(position="fill") + 
+  ylab("Frequency") + 
+  scale_fill_manual(values=c(color.less50K, color.more50k)) +
+  theme_clean()
+```
+
+It seems that people with higher incomes also have higher capital increases. We have discovered the wheel!  
+  
+## Hours per week  
+  
+We show the graph of the income by hours per week  
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+ggplot(data = adult.data) +
+  aes(x=hours.per.week.segment,fill=income) + 
+  geom_bar()+ 
+  scale_fill_manual(values=c(color.less50K, color.more50k)) +
+  theme_clean()
+```
+
+
+```{r}
+ggplot(data = adult.data) +
+  aes(x=hours.per.week.segment,fill=income) + 
+  geom_bar(position="fill") + 
+  ylab("Frequency") + 
+  theme_clean() +
+  scale_fill_manual(values=c(color.less50K, color.more50k)) 
+```        
+  
+After working 50 hours a week, the percentage of people with incomes greater than $ 50,000 almost doubles.  
+  
+## Native country
+
+We show income by country of origin.  
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+ggplot(data = adult.data) +
+  aes(x=native.country,fill=income) + 
+  geom_bar() + 
+  scale_fill_manual(values=c(color.less50K, color.more50k)) +
+  theme_clean() +
+  theme(axis.text.x = element_text(angle = 90))
+```
+
+Obviously, much of the dataset is native to the United States.  
+
+```{r}
+ggplot(data = adult.data) +
+  aes(x=native.country,fill=income) + 
+  geom_bar(position="fill") + 
+  ylab("Frequency") + 
+  scale_fill_manual(values=c(color.less50K, color.more50k)) +
+  theme_clean() +
+  theme(axis.text.x = element_text(angle = 90))
+```  
+  
+There are important differences in income depending on the country of origin.  
+
+## Final weight
+
+The fnlwgt parameter represents the amount of population that each entry in the data set represents.  
+
+We show its distribution.  
+```{r}
+ggplot(data = adult.data) +
+  aes(x=fnlwgt) +
+  geom_histogram(binwidth=100000, fill=color.main) + 
+  theme_clean()
+```
+
+We show the relationship of the parameter with income.  
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+ggplot(data = adult.data) +
+  aes(x = fnlwgt, fill = income) +
+  geom_histogram(binwidth=100000, position="fill") +
+  labs(y="Frequency") +
+  scale_fill_manual(values=c(color.less50K, color.more50k)) +
+  theme_clean()
+```
+
+
+
