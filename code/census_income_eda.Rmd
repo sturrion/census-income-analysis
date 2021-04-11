@@ -53,7 +53,9 @@ column.names <- c('age','workclass','fnlwgt','education','education.num',
                   'income')
 
 # strip.white = TRUE to keep out the latest rows (empty rows)
-adult.data <- read.csv('../data/adult.data', stringsAsFactors = FALSE, header = FALSE, col.names = column.names, strip.white = TRUE)
+adult.data <- read.csv('../data/adult.data', stringsAsFactors = FALSE, 
+                       header = FALSE, col.names = column.names, 
+                       strip.white = TRUE)
 
 #rows <- dim(adult.data)[1]
 ```
@@ -134,8 +136,10 @@ What we have for now is:
     
 We add a new field `age.segment` with the age discretized in intervals..   
 ```{r}
-adult.data$age.segment <- cut(adult.data$age, breaks = c(0,17,27,37,47,57,67,77,87,100), 
-                              labels = c("< 18", "18-27", "28-37", "38-47","48-57","58-67","68-77","78-87", "> 87"))
+adult.data$age.segment <- cut(adult.data$age, 
+                              breaks = c(0,17,27,37,47,57,67,77,87,100), 
+                              labels = c("< 18", "18-27", "28-37", "38-47",
+                                         "48-57","58-67","68-77","78-87", "> 87"))
 
 ggplot(data = adult.data) +
   aes(x=age.segment) +
@@ -189,14 +193,16 @@ summary(adult.data$capital)
 
 We standardize the created variable.  
 ```{r}
-adult.data$capital.scaled <- scale(adult.data$capital, center = TRUE, scale = TRUE)
+adult.data$capital.scaled <- scale(adult.data$capital, center = TRUE, 
+                                   scale = TRUE)
 summary(adult.data$capital.scaled)
 ```
 
 And we discretize it.  
 ```{r}
-adult.data$capital.segment <- cut(adult.data$capital.scaled, breaks = c(-1.0, 0.0, 1.0, 14.0), 
-                              labels = c("Losses", "Gains", "Large Gains"))
+adult.data$capital.segment <- cut(adult.data$capital.scaled, 
+                                  breaks = c(-1.0, 0.0, 1.0, 14.0), 
+                                  labels = c("Losses", "Gains", "Large Gains"))
 
 ggplot(data = adult.data) +
   aes(x=capital.segment) +
@@ -208,7 +214,11 @@ We observe how the most frequent is to lose capital.
 
 Finally, we add a new field `hours.per.week.segment` with the hours worked per weeks in intervals.    
 ```{r}
-adult.data$hours.per.week.segment <- cut(adult.data$hours.per.week, breaks = c(0,9,19,29,39,49,59,69,79,89,100), labels = c( "1-9", "10-19", "20-29", "30-39","40-49","50-59","60-69","70-79","80-89","90-99"))
+adult.data$hours.per.week.segment <- cut(adult.data$hours.per.week, 
+                                         breaks = c(0,9,19,29,39,49,59,69,79,89,100), 
+                                         labels = c( "1-9", "10-19", "20-29",
+                                                     "30-39","40-49","50-59",
+                                                     "60-69","70-79","80-89","90-99"))
 
 ggplot(data = adult.data) +
   aes(x=hours.per.week.segment) +
