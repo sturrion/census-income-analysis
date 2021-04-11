@@ -1,16 +1,17 @@
 ---
 title: 'Census Income Dataset - EDA'
 author: "Author: sturrion"
-date: "March 2021"
+date: "April 2021"
 output:
   html_document:
-    highlight: default
-    number_sections: yes
-    theme: cosmo
-    toc: yes
-    toc_depth: 4
-    includes:
-      in_header: sturrion_header.html
+    highlight: tango
+    number_sections: false
+    theme: flatly
+    toc: true
+    toc_depth: 2
+    toc_float:
+      collapsed: false
+      smooth_scroll: true
   pdf_document:
     highlight: zenburn
     toc: yes
@@ -40,9 +41,9 @@ if (!require('dplyr')) install.packages('dplyr'); library('dplyr')
 # https://CRAN.R-project.org/package=ggthemes 
 if (!require('ggthemes')) install.packages('ggthemes'); library('ggthemes')
 ```
-
-#Preprocesing data
-
+******
+# Preprocesing data
+******
 Loading the dataset
 ```{r echo=TRUE, message=FALSE, warning=FALSE}
 # adult.data does not have a header row, so, we need to create it
@@ -218,8 +219,9 @@ ggplot(data = adult.data) +
 
 We verify, as we already knew from the interquartile range (IQR), that the highest frequency occurs in the range of 40 to 49 hours per week.  
 
-#Exploring data
-
+******
+# Exploring data
+******
 We are going to analyze the relationships of the variables with the income variable.
   
 ## Age
